@@ -23,3 +23,6 @@ go.work.sum
 
 # env file
 .env
+
+# auto-generated version file
+cmd/rpk/version_init.go
