@@ -158,9 +158,6 @@ func unpackArchive(name string, verbose bool) error {
 func regexFromPattern(pattern string) (*regexp.Regexp, error) {
 	var sb strings.Builder
 	sb.WriteByte('^')
-	// for i, l := 0, len(pattern); i < l; i++ {
-	// 	c
-	// }
 	for _, r := range pattern {
 		switch r {
 		case '*':
@@ -189,37 +186,16 @@ func findFiles(includePatterns, excludePatterns []string) (f rawpack.FileTable, 
 			return nil
 		}
 		p = filepath.ToSlash(p)
-		// name := filepath.Base(p)
-		// log.Printf("look 1 %v\n", p)
 		for _, it := range excludePatterns {
-			// log.Printf("look 2 %v\n", p)
 			r, err := regexFromPattern(it)
 			if err != nil {
 				return err
 			}
-			// if matched, err := path.Match(it, name); err != nil || matched {
-			// 	// log.Printf("look 3 %v\n", p)
-			// 	return nil
-			// }
 			if r.MatchString(p) {
 				return nil
 			}
 		}
 		for _, it := range includePatterns {
-			// if matched, err := path.Match(it, name); err != nil {
-			// 	// log.Printf("look 4 %v\n", p)
-			// 	return err
-			// } else if matched {
-			// 	// log.Printf("look 5 %v\n", p)
-			// 	if info, err := d.Info(); err != nil {
-			// 		return err
-			// 	} else {
-			// 		// log.Printf("look 5 %v\n", p)
-			// 		f = append(f, rawpack.File{Name: p, Size: uint64(info.Size())})
-			// 	}
-			// } /* else {
-			// 	log.Printf("look 6 %v\n", p)
-			// } */
 			r, err := regexFromPattern(it)
 			if err != nil {
 				return err
@@ -244,9 +220,7 @@ func packArchive(name string, files, excludes []string, verbose bool) error {
 	if verbose {
 		fmt.Printf("creating archive %q...\n", name)
 	}
-	// log.Printf("this 1\n")
 	ft, err := findFiles(files, excludes)
-	// log.Printf("this 2 %v %v\n", ft, err)
 	if err != nil {
 		return err
 	}
@@ -254,18 +228,15 @@ func packArchive(name string, files, excludes []string, verbose bool) error {
 		fmt.Println("warning: files not specified, empty archive will be created")
 	}
 	wc, err := rawpack.File{Name: name}.Write()
-	// log.Printf("this 3 %v\n", err)
 	if err != nil {
 		return err
 	}
 	defer wc.Close()
 	archive := rawpack.NewWriter(wc)
 	err = archive.WriteSignature(rawpack.NewSignature())
-	// log.Printf("this 4 %v\n", err)
 	if err == nil {
 		err = archive.WriteFileTable(ft)
 	}
-	// log.Printf("this 5 %v\n", err)
 	if err == nil {
 		if verbose {
 			for i, it := range ft {
@@ -283,7 +254,6 @@ func packArchive(name string, files, excludes []string, verbose bool) error {
 			}
 		}
 	}
-	// log.Printf("this 6 %v\n", err)
 	return err
 }
 
@@ -300,7 +270,6 @@ func noMode() {
 }
 
 func main() {
-	// log.Printf("cmdargs: %v\n", os.Args)
 	if len(os.Args) < 2 {
 		noMode()
 	}
@@ -313,7 +282,6 @@ func main() {
 	}
 
 	var create, list, extract, verbose bool
-	// var waitName, waitDir, waitExclude bool
 	var name string
 	excludes := make([]string, 0, 2)
 	files := make([]string, 0, 2)
@@ -331,15 +299,12 @@ func main() {
 			extract = true
 
 		case "-f", "--file":
-			// waitName = true
 			waiters = append(waiters, &name)
 
 		case "-d", "--dir":
-			// waitDir = true
 			waiters = append(waiters, &wd)
 
 		case "-e", "--exclude":
-			// waitDir = true
 			l := len(excludes)
 			excludes = append(excludes, "")
 			waiters = append(waiters, &excludes[l])
@@ -429,10 +394,6 @@ func main() {
 	if !create {
 		noMode()
 	}
-
-	// if len(files) == 0 {
-	// 	fmt.Println("warning: files not specified, empty archive will be created")
-	// }
 
 	if len(files) == 0 {
 		files = append(files, "*")
