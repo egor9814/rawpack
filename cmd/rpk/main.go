@@ -117,7 +117,7 @@ func readArchive(name string, list, verbose bool) error {
 	if list {
 		if verbose {
 			for i, it := range ft {
-				fmt.Printf("%3d/%3d> %s (%d bytes)\n", i, len(ft), it.Name, it.Size)
+				fmt.Printf("%3d/%3d> %s (%d bytes)\n", i+1, len(ft), it.Name, it.Size)
 			}
 		} else {
 			for _, it := range ft {
