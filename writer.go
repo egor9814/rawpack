@@ -61,15 +61,19 @@ func (w *Writer) WriteFile(f *File) error {
 	in, err := f.Read()
 	if err == nil {
 		defer in.Close()
-		err = w.Write(in, f.Size)
+		err = w.WriteFrom(in, f.Size)
 	}
 	return err
 }
 
-func (w *Writer) Write(in io.Reader, size uint64) error {
+func (w *Writer) WriteFrom(in io.Reader, size uint64) error {
 	n, err := io.CopyN(w.out, in, int64(size))
 	if err == nil && n < int64(size) {
 		err = io.ErrShortWrite
 	}
 	return err
+}
+
+func (w *Writer) Write(b []byte) (int, error) {
+	return w.out.Write(b)
 }

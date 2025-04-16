@@ -98,3 +98,7 @@ func (r *Reader) ReadFileTo(out io.Writer, size uint64) error {
 	}
 	return err
 }
+
+func (r *Reader) Read(b []byte) (int, error) {
+	return r.in.Read(b)
+}
