@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -56,17 +57,31 @@ func help() {
 	fmt.Println("    extract files from archive 'test.rpk'")
 	fmt.Printf("  %s -xvfd test.rpk tmp\n", exe)
 	fmt.Println("    extract files from archive 'test.rpk' to directory 'tmp'")
+	os.Exit(0)
 }
 
 func version() {
 	fmt.Printf("%s %s\n", os.Args[0], Version.String())
+	os.Exit(0)
 }
 
-func openArchive(name string) (io.Reader, io.Closer, error) {
+func openFileForRead(name string) (io.Reader, io.Closer, error) {
 	if name == "-" || name == "" {
 		return os.Stdin, nil, nil
 	} else {
 		f, err := rawpack.File{Name: name}.Read()
+		if err != nil {
+			return nil, nil, err
+		}
+		return f, f, nil
+	}
+}
+
+func openFileForWrite(name string) (io.Writer, io.Closer, error) {
+	if name == "-" || name == "" {
+		return os.Stdout, nil, nil
+	} else {
+		f, err := rawpack.File{Name: name}.Write()
 		if err != nil {
 			return nil, nil, err
 		}
@@ -88,12 +103,12 @@ func chdir() error {
 func readArchive(name string, list, verbose bool) error {
 	if verbose {
 		if list {
-			fmt.Printf("list of files %q:\n", name)
+			fmt.Fprintf(os.Stderr, "list of files %q:\n", name)
 		} else {
-			fmt.Printf("unpacking archive %q...\n", name)
+			fmt.Fprintf(os.Stderr, "unpacking archive %q...\n", name)
 		}
 	}
-	r, c, err := openArchive(name)
+	r, c, err := openFileForRead(name)
 	if err != nil {
 		return err
 	}
@@ -117,11 +132,11 @@ func readArchive(name string, list, verbose bool) error {
 	if list {
 		if verbose {
 			for i, it := range ft {
-				fmt.Printf("%3d/%3d> %s (%d bytes)\n", i+1, len(ft), it.Name, it.Size)
+				fmt.Fprintf(os.Stderr, "%3d/%3d> %s (%d bytes)\n", i+1, len(ft), it.Name, it.Size)
 			}
 		} else {
 			for _, it := range ft {
-				fmt.Println(it)
+				fmt.Fprintln(os.Stderr, it)
 			}
 		}
 	} else {
@@ -130,14 +145,14 @@ func readArchive(name string, list, verbose bool) error {
 		}
 		if verbose {
 			for i, it := range ft {
-				fmt.Printf("%3d/%3d> unpacking %s...\n", i+1, len(ft), it.Name)
+				fmt.Fprintf(os.Stderr, "%3d/%3d> unpacking %s...\n", i+1, len(ft), it.Name)
 				if err := archive.ReadFile(&it); err != nil {
 					return err
 				}
 			}
 		} else {
 			for _, it := range ft {
-				fmt.Println(it.Name)
+				fmt.Fprintln(os.Stderr, it.Name)
 				if err := archive.ReadFile(&it); err != nil {
 					return err
 				}
@@ -156,6 +171,7 @@ func unpackArchive(name string, verbose bool) error {
 }
 
 func regexFromPattern(pattern string) (*regexp.Regexp, error) {
+	pattern = filepath.ToSlash(pattern)
 	var sb strings.Builder
 	sb.WriteByte('^')
 	for _, r := range pattern {
@@ -213,59 +229,109 @@ func findFiles(includePatterns, excludePatterns []string) (f rawpack.FileTable, 
 	return
 }
 
-func packArchive(name string, files, excludes []string, verbose bool) error {
-	if err := chdir(); err != nil {
+func copyBuffer(dst io.Writer, src io.Reader, size uint64, buf []byte) (written uint64, err error) {
+	// copy of io.copyBuffer, without WriterTo and ReaderFrom, with log
+	for {
+		nr, er := src.Read(buf)
+		if nr > 0 {
+			nw, ew := dst.Write(buf[0:nr])
+			if nw < 0 || nr < nw {
+				nw = 0
+				if ew == nil {
+					ew = errors.New("invalid write result")
+				}
+			}
+			written += uint64(nw)
+			fmt.Fprintf(os.Stderr, "\r%d/%d bytes", written, size)
+			if ew != nil {
+				err = ew
+				break
+			}
+			if nr != nw {
+				err = io.ErrShortWrite
+				break
+			}
+		}
+		if er != nil {
+			if er != io.EOF {
+				err = er
+			}
+			break
+		}
+	}
+	fmt.Fprintf(os.Stderr, "\r")
+	return written, err
+}
+
+var ioBuffer [1 << 15] /* 32KB */ byte
+
+func packFile(out io.Writer, f *rawpack.File) error {
+	rc, err := f.Read()
+	if err != nil {
 		return err
 	}
+	defer rc.Close()
+	_, err = copyBuffer(out, rc, f.Size, ioBuffer[:])
+	return err
+}
+
+func packArchive(name string, files, excludes []string, verbose bool) error {
 	if verbose {
-		fmt.Printf("creating archive %q...\n", name)
+		fmt.Fprintf(os.Stderr, "creating archive %q...\n", name)
 	}
 	ft, err := findFiles(files, excludes)
 	if err != nil {
 		return err
 	}
 	if len(ft) == 0 {
-		fmt.Println("warning: files not specified, empty archive will be created")
+		fmt.Fprintln(os.Stderr, "warning: files not specified, empty archive will be created")
 	}
-	wc, err := rawpack.File{Name: name}.Write()
+	w, c, err := openFileForWrite(name)
 	if err != nil {
 		return err
 	}
-	defer wc.Close()
-	archive := rawpack.NewWriter(wc)
+	if c != nil {
+		defer c.Close()
+	}
+	if err := chdir(); err != nil {
+		return err
+	}
+	archive := rawpack.NewWriter(w)
 	err = archive.WriteSignature(rawpack.NewSignature())
 	if err == nil {
 		err = archive.WriteFileTable(ft)
 	}
-	if err == nil {
-		if verbose {
-			for i, it := range ft {
-				fmt.Printf("%3d/%3d> packing %s...\n", i+1, len(ft), it.Name)
-				if err := archive.WriteFile(&it); err != nil {
-					return err
-				}
+	if err != nil {
+		return err
+	}
+	if verbose {
+		for i, it := range ft {
+			fmt.Fprintf(os.Stderr, "%3d/%3d> packing %s...\n", i+1, len(ft), it.Name)
+			if err := packFile(archive, &it); err != nil {
+				return err
 			}
-		} else {
-			for _, it := range ft {
-				fmt.Println(it.Name)
-				if err := archive.WriteFile(&it); err != nil {
-					return err
-				}
+		}
+		fmt.Fprintf(os.Stderr, "\rdone!                                            ")
+	} else {
+		for _, it := range ft {
+			fmt.Fprintln(os.Stderr, it.Name)
+			if err := archive.WriteFile(&it); err != nil {
+				return err
 			}
 		}
 	}
-	return err
+	return nil
 }
 
 func handleCommand(err error) {
 	if err != nil {
-		fmt.Printf("error: %v\n", err)
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
 }
 
 func noMode() {
-	fmt.Println("error: mode not specified (-c, -x or -l), or type '--help'")
+	fmt.Fprintln(os.Stderr, "error: mode not specified (-c, -x or -l), or type '--help'")
 	os.Exit(1)
 }
 
@@ -275,7 +341,7 @@ func main() {
 	}
 
 	if d, err := os.Getwd(); err != nil {
-		fmt.Printf("error: %v\n", err)
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	} else {
 		wd = d
@@ -287,38 +353,70 @@ func main() {
 	files := make([]string, 0, 2)
 	waiters := make([]*string, 0, 4)
 	waitersReed := 0
-	for i := 1; i < len(os.Args); i++ {
-		switch arg := os.Args[i]; arg {
-		case "-l", "--list":
+	handleArg := func(r rune) bool {
+		switch r {
+		default:
+			return false
+
+		case 'l':
 			list = true
 
-		case "-c", "--create":
+		case 'c':
 			create = true
 
-		case "-x", "--extract":
+		case 'x':
 			extract = true
 
-		case "-f", "--file":
+		case 'f':
 			waiters = append(waiters, &name)
 
-		case "-d", "--dir":
+		case 'd':
 			waiters = append(waiters, &wd)
 
-		case "-e", "--exclude":
+		case 'e':
 			l := len(excludes)
 			excludes = append(excludes, "")
 			waiters = append(waiters, &excludes[l])
 
-		case "-v", "--verbose":
+		case 'v':
 			verbose = true
 
-		case "-V", "--version":
+		case 'V':
 			version()
-			return
+
+		case 'h':
+			help()
+		}
+		return true
+	}
+	for i := 1; i < len(os.Args); i++ {
+		switch arg := os.Args[i]; arg {
+		case "-l", "--list":
+			handleArg('l')
+
+		case "-c", "--create":
+			handleArg('c')
+
+		case "-x", "--extract":
+			handleArg('x')
+
+		case "-f", "--file":
+			handleArg('f')
+
+		case "-d", "--dir":
+			handleArg('d')
+
+		case "-e", "--exclude":
+			handleArg('e')
+
+		case "-v", "--verbose":
+			handleArg('v')
+
+		case "-V", "--version":
+			handleArg('V')
 
 		case "-h", "--help":
-			help()
-			return
+			handleArg('h')
 
 		default:
 			if len(arg) == 0 {
@@ -327,46 +425,14 @@ func main() {
 			if arg[0] == '-' {
 				handled := 0
 				for _, r := range arg[1:] {
-					switch r {
-					default:
-						fmt.Printf("warning: ignoring unsupported flag '-%v'\n", string(r))
-						handled--
-
-					case 'l':
-						list = true
-
-					case 'c':
-						create = true
-
-					case 'x':
-						extract = true
-
-					case 'f':
-						waiters = append(waiters, &name)
-
-					case 'd':
-						waiters = append(waiters, &wd)
-
-					case 'e':
-						l := len(excludes)
-						excludes = append(excludes, "")
-						waiters = append(waiters, &excludes[l])
-
-					case 'v':
-						verbose = true
-
-					case 'V':
-						version()
-						return
-
-					case 'h':
-						help()
-						return
+					if handleArg(r) {
+						handled++
+					} else {
+						fmt.Fprintf(os.Stderr, "warning: ignoring unsupported flag '-%v'\n", string(r))
 					}
-					handled++
 				}
 				if handled == 0 {
-					fmt.Printf("warning: ignoring unsupported flag '%s'\n", arg)
+					fmt.Fprintf(os.Stderr, "warning: ignoring unsupported flag '%s'\n", arg)
 				}
 			} else if waitersReed < len(waiters) {
 				*waiters[waitersReed] = arg
@@ -377,7 +443,7 @@ func main() {
 		}
 	}
 	if waitersReed < len(waiters) {
-		fmt.Println("error: not enough arguments for provided options")
+		fmt.Fprintln(os.Stderr, "error: not enough arguments for provided options")
 		os.Exit(1)
 	}
 
