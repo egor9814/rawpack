@@ -1,6 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"os"
+)
 
 type versionType struct {
 	Major, Minor, Patch int
@@ -15,5 +18,10 @@ func (v *versionType) String() string {
 }
 
 var Version versionType
+
+func version() {
+	fmt.Printf("%s %s\n", os.Args[0], Version.String())
+	os.Exit(0)
+}
 
 //go:generate go run ../../tools/generate_version.go
