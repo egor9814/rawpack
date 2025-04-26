@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"runtime"
@@ -46,11 +47,8 @@ func handleZstd(s string) (i *zstdInfo, err error) {
 	}
 	consumeInt := func() (uint64, bool) {
 		consumeDigit := func() bool {
-			if pos >= uint64(len(runes)) {
-				return false
-			}
-			if '0' <= runes[0] && runes[0] <= '9' {
-				runes = runes[1:]
+			if pos < uint64(len(runes)) && '0' <= runes[pos] && runes[pos] <= '9' {
+				pos++
 				return true
 			}
 			return false
@@ -59,7 +57,7 @@ func handleZstd(s string) (i *zstdInfo, err error) {
 			if *i == 0 {
 				return false
 			}
-			n, err := strconv.ParseUint(string(runes[pos:pos+*i]), 10, 64)
+			n, err := strconv.ParseUint(string(runes[pos-*i:pos]), 10, 64)
 			if err != nil {
 				return false
 			}
@@ -76,11 +74,7 @@ func handleZstd(s string) (i *zstdInfo, err error) {
 	expected := func(value, after string) error {
 		return fmt.Errorf("expected %s after %s", value, after)
 	}
-	if !consume('=') {
-		err = expected("'='", "'--zstd'")
-		return
-	}
-	for pos <= uint64(len(runes)) {
+	for pos < uint64(len(runes)) {
 		if consume('a') && consume('u') && consume('t') && consume('o') {
 			i.forceAuto = true
 			return
@@ -109,7 +103,7 @@ func handleZstd(s string) (i *zstdInfo, err error) {
 				err = expected("number", "'t='")
 				return
 			}
-			i.threads = byte(max(255, v))
+			i.threads = byte(min(255, v))
 		} else if consume('m') {
 			if !consume('=') {
 				err = expected("'='", "'m'")
@@ -221,7 +215,6 @@ func (i *zstdInfo) wrapWriter(w io.Writer, c io.Closer, writeSpeed float64, size
 
 type zstdReadWrapper struct {
 	r   io.Reader
-	c   io.Closer
 	tmp []byte
 }
 
@@ -249,10 +242,6 @@ func (w *zstdReadWrapper) Read(b []byte) (int, error) {
 	return w.r.Read(b)
 }
 
-func (w *zstdReadWrapper) Close() error {
-	return w.c.Close()
-}
-
 func (i *zstdInfo) wrapReader(r io.Reader, c io.Closer, writeSpeed float64) (io.Reader, io.Closer, error) {
 	if i == nil {
 		var buf = [8]byte{
@@ -263,16 +252,14 @@ func (i *zstdInfo) wrapReader(r io.Reader, c io.Closer, writeSpeed float64) (io.
 			return nil, nil, err
 		}
 		if n < 4 {
-			return nil, nil, io.ErrUnexpectedEOF
+			return nil, nil, errors.New("cannot detect rawpack or ZSTD signature")
 		}
-		rc := &zstdReadWrapper{
+		r = &zstdReadWrapper{
 			r:   r,
-			c:   c,
 			tmp: buf[4:],
 		}
-		r, c = rc, rc
 		if !bytes.Equal(buf[:4], buf[4:]) {
-			return r, c, nil
+			return r, nil, nil
 		}
 		i = &zstdInfo{
 			forceAuto: true,
