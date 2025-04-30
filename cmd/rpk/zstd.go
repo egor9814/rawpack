@@ -13,7 +13,7 @@ import (
 )
 
 type zstdInfo struct {
-	memory        uint64
+	memory        *uint64
 	level         zstd.EncoderLevel
 	threads       byte
 	memoryPercent bool
@@ -31,7 +31,6 @@ func handleZstd(s string) (i *zstdInfo, err error) {
 		forceAuto: false,
 		level:     zstd.SpeedDefault,
 		threads:   1,
-		memory:    1 << 63,
 	}
 	runes := []rune(s)
 	pos := uint64(0)
@@ -114,15 +113,16 @@ func handleZstd(s string) (i *zstdInfo, err error) {
 				err = expected("number", "'m='")
 				return
 			}
-			i.memory = v
+			i.memory = new(uint64)
+			*i.memory = v
 			if consume('%') {
 				i.memoryPercent = true
 			} else if consume('G') {
-				i.memory <<= 30
+				*i.memory <<= 30
 			} else if consume('M') {
-				i.memory <<= 20
+				*i.memory <<= 20
 			} else if consume('K') {
-				i.memory <<= 10
+				*i.memory <<= 10
 			}
 			_ = consume('B')
 		} else {
@@ -173,25 +173,38 @@ func (i *zstdInfo) validateParameters(writeSpeed float64, size uint64, isWrite b
 			default:
 				i.level = zstd.SpeedBetterCompression
 			}
-		} else {
-			i.memory = uint64(float64(freeMem.Available) * 0.7)
 		}
+		i.memory = new(uint64)
+		*i.memory = uint64(float64(freeMem.Available) * 0.7)
 	} else {
 		if i.threads == 0 {
 			i.threads = byte(runtime.NumCPU())
 		} else {
 			i.threads = byte(min(runtime.NumCPU(), int(i.threads)))
 		}
-		if !isWrite {
-			if i.memoryPercent {
-				i.memoryPercent = false
-				i.memory = uint64(float64(freeMem.Available) / 100 * max(float64(i.memory), 100))
-			}
+		if i.memoryPercent {
+			i.memoryPercent = false
+			*i.memory = uint64(float64(freeMem.Available) / 100 * max(float64(*i.memory), 100))
 		}
 	}
-	if !isWrite {
+	if i.memory == nil {
+		i.memory = new(uint64)
+		*i.memory = 4 << 30 // 4GB
+	}
+	if isWrite {
+		if n := *i.memory; n != 0 {
+			n |= n >> 1
+			n |= n >> 2
+			n |= n >> 4
+			n |= n >> 8
+			n |= n >> 16
+			n |= n >> 32
+			*i.memory = n - (n >> 1)
+		}
+		*i.memory = min(zstd.MaxWindowSize, max(zstd.MinWindowSize, *i.memory))
+	} else {
 		i.threads = min(i.threads, 4)
-		i.memory = min(1<<63, max(1, i.memory))
+		*i.memory = min(1<<63, max(1<<10, *i.memory))
 	}
 	return nil
 }
@@ -207,6 +220,7 @@ func (i *zstdInfo) wrapWriter(w io.Writer, c io.Closer, writeSpeed float64, size
 
 	zw, err := zstd.NewWriter(
 		w,
+		zstd.WithWindowSize(int(*i.memory)),
 		zstd.WithEncoderLevel(i.level),
 		zstd.WithEncoderConcurrency(int(i.threads)),
 	)
@@ -273,7 +287,7 @@ func (i *zstdInfo) wrapReader(r io.Reader, c io.Closer, writeSpeed float64) (io.
 	zr, err := zstd.NewReader(
 		r,
 		zstd.WithDecoderConcurrency(int(i.threads)),
-		zstd.WithDecoderMaxMemory(i.memory),
+		zstd.WithDecoderMaxMemory(*i.memory),
 	)
 	return zr, nil, err
 }
