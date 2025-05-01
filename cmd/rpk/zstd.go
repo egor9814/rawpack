@@ -256,24 +256,24 @@ func (w *zstdReadWrapper) Read(b []byte) (int, error) {
 	return w.r.Read(b)
 }
 
-func (i *zstdInfo) wrapReader(r io.Reader, c io.Closer, writeSpeed float64) (io.Reader, io.Closer, error) {
+func (i *zstdInfo) wrapReader(r io.Reader, writeSpeed float64) (io.Reader, error) {
 	if i == nil {
 		var buf = [8]byte{
 			0x28, 0xb5, 0x2f, 0xfd,
 		}
 		n, err := r.Read(buf[4:])
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		if n < 4 {
-			return nil, nil, errors.New("cannot detect rawpack or ZSTD signature")
+			return nil, errors.New("cannot detect rawpack or ZSTD signature")
 		}
 		r = &zstdReadWrapper{
 			r:   r,
 			tmp: buf[4:],
 		}
 		if !bytes.Equal(buf[:4], buf[4:]) {
-			return r, nil, nil
+			return r, nil
 		}
 		i = &zstdInfo{
 			forceAuto: true,
@@ -281,7 +281,7 @@ func (i *zstdInfo) wrapReader(r io.Reader, c io.Closer, writeSpeed float64) (io.
 	}
 
 	if err := i.validateParameters(writeSpeed, 0, false); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	zr, err := zstd.NewReader(
@@ -289,5 +289,5 @@ func (i *zstdInfo) wrapReader(r io.Reader, c io.Closer, writeSpeed float64) (io.
 		zstd.WithDecoderConcurrency(int(i.threads)),
 		zstd.WithDecoderMaxMemory(*i.memory),
 	)
-	return zr, nil, err
+	return zr, err
 }

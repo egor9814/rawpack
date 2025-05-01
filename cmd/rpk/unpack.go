@@ -41,11 +41,10 @@ func readArchive(name, password string, list bool, zstd *zstdInfo, verbose bool)
 	}
 	defer handleClosing(c, name)
 
-	r, c, err = zstd.wrapReader(r, c, writeSpeed)
+	r, err = zstd.wrapReader(r, writeSpeed)
 	if err != nil {
 		return err
 	}
-	defer handleClosing(c, "ZSTD Decompressor")
 
 	if len(password) > 0 {
 		r = newCryptoReader(r, []byte(password))
