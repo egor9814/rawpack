@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func makeIoBuffer() (buf []byte, writeSpeed float64, err error) {
+func makeIOBuffer() (buf []byte, writeSpeed float64, err error) {
 	impl := func(buf []byte) (writeSpeed float64, err error) {
 		var f *os.File
 		f, err = os.Create(fmt.Sprintf(".%d-%d.tmp", rand.Uint64(), rand.Uint64()))

@@ -21,13 +21,17 @@ func unpackFile(in io.Reader, f *rawpack.File, buf []byte) error {
 func readArchive(name string, list bool, zstd *zstdInfo, verbose bool) error {
 	if verbose {
 		if list {
-			fmt.Fprintf(os.Stderr, "list of files %q:\n", name)
+			fmt.Fprint(os.Stderr, "list of files")
 		} else {
-			fmt.Fprintf(os.Stderr, "unpacking archive %q...\n", name)
+			fmt.Fprint(os.Stderr, "unpacking archive")
 		}
+		if !isStdIOFile(name) {
+			fmt.Fprintf(os.Stderr, " %q", name)
+		}
+		fmt.Fprintln(os.Stderr, "...")
 	}
 
-	buf, writeSpeed, err := makeIoBuffer()
+	buf, writeSpeed, err := makeIOBuffer()
 	if err != nil {
 		return err
 	}

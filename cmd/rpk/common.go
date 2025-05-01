@@ -15,8 +15,12 @@ import (
 
 var wd string
 
+func isStdIOFile(name string) bool {
+	return len(name) == 0 || name == "-"
+}
+
 func openFileForRead(name string) (io.Reader, io.Closer, error) {
-	if name == "-" || name == "" {
+	if isStdIOFile(name) {
 		return os.Stdin, nil, nil
 	} else {
 		f, err := rawpack.File{Name: name}.Read()
@@ -28,7 +32,7 @@ func openFileForRead(name string) (io.Reader, io.Closer, error) {
 }
 
 func openFileForWrite(name string) (io.Writer, io.Closer, error) {
-	if name == "-" || name == "" {
+	if isStdIOFile(name) {
 		return os.Stdout, nil, nil
 	} else {
 		f, err := rawpack.File{Name: name}.Write()
@@ -72,7 +76,7 @@ func regexFromPattern(pattern string) (*regexp.Regexp, error) {
 	return regexp.Compile(sb.String())
 }
 
-func findFiles(includePatterns, excludePatterns []string) (f rawpack.FileTable, err error) {
+func findFiles(includePatterns, excludePatterns []string, verbose bool) (f rawpack.FileTable, err error) {
 	f = make(rawpack.FileTable, 0, 32)
 	err = filepath.WalkDir(".", func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -101,6 +105,9 @@ func findFiles(includePatterns, excludePatterns []string) (f rawpack.FileTable, 
 					return err
 				} else {
 					f = append(f, rawpack.File{Name: p, Size: uint64(info.Size())})
+					if verbose {
+						fmt.Fprintf(os.Stderr, "\r%d", len(f))
+					}
 				}
 			}
 		}

@@ -20,16 +20,25 @@ func packFile(out io.Writer, f *rawpack.File, buf []byte) error {
 
 func packArchive(name string, files, excludes []string, zstd *zstdInfo, verbose bool) error {
 	if verbose {
-		fmt.Fprintf(os.Stderr, "creating archive %q...\n", name)
+		fmt.Fprintln(os.Stderr, "scaning files...")
 	}
-
-	ft, err := findFiles(files, excludes)
+	ft, err := findFiles(files, excludes, verbose)
+	if verbose {
+		fmt.Fprintf(os.Stderr, "\r          ")
+	}
 	if err != nil {
 		return err
 	}
-
 	if len(ft) == 0 {
 		fmt.Fprintln(os.Stderr, "warning: files not specified, empty archive will be created")
+	}
+
+	if verbose {
+		fmt.Fprint(os.Stderr, "creating archive")
+		if !isStdIOFile(name) {
+			fmt.Fprintf(os.Stderr, " %q", name)
+		}
+		fmt.Fprintln(os.Stderr, "...")
 	}
 
 	w, c, err := openFileForWrite(name)
@@ -44,7 +53,7 @@ func packArchive(name string, files, excludes []string, zstd *zstdInfo, verbose 
 		return err
 	}
 
-	buf, writeSpeed, err := makeIoBuffer()
+	buf, writeSpeed, err := makeIOBuffer()
 	if err != nil {
 		return err
 	}
