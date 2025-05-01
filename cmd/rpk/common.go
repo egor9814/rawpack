@@ -147,7 +147,6 @@ func copyBuffer(dst io.Writer, src io.Reader, size uint64, buf []byte) (written 
 			break
 		}
 	}
-	logf("\r                           ")
 	return written, err
 }
 

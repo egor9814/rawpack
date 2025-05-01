@@ -81,12 +81,12 @@ func readArchive(name, password string, list bool, zstd *zstdInfo, verbose bool)
 		}
 		if verbose {
 			for i, it := range ft {
-				logf("%3d/%3d> unpacking %s...\n", i+1, len(ft), it.Name)
+				logf("\r%3d/%3d> unpacking %s...\n", i+1, len(ft), it.Name)
 				if err := unpackFile(archive, &it, buf); err != nil {
 					return err
 				}
 			}
-			logf("\r                                                 ")
+			logln("\rdone!                                            ")
 		} else {
 			for _, it := range ft {
 				logln(it.Name)

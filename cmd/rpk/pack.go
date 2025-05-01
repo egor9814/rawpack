@@ -20,18 +20,15 @@ func packArchive(name, password string, files, excludes []string, zstd *zstdInfo
 		logln("scaning files...")
 	}
 	ft, err := findFiles(files, excludes, verbose)
-	if verbose {
-		logf("\r          ")
-	}
 	if err != nil {
 		return err
 	}
 	if len(ft) == 0 {
-		logln("warning: files not specified, empty archive will be created")
+		logln("\rwarning: files not specified, empty archive will be created")
 	}
 
 	if verbose {
-		log("creating archive")
+		log("\rcreating archive")
 		if !isStdIOFile(name) {
 			logf(" %q", name)
 		}
@@ -80,12 +77,12 @@ func packArchive(name, password string, files, excludes []string, zstd *zstdInfo
 
 	if verbose {
 		for i, it := range ft {
-			logf("%3d/%3d> packing %s...\n", i+1, len(ft), it.Name)
+			logf("\r%3d/%3d> packing %s...\n", i+1, len(ft), it.Name)
 			if err := packFile(archive, &it, buf); err != nil {
 				return err
 			}
 		}
-		logf("\rdone!                                            ")
+		logln("\rdone!                                            ")
 	} else {
 		for _, it := range ft {
 			logln(it.Name)
