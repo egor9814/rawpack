@@ -18,7 +18,7 @@ func main() {
 	}
 
 	var create, list, extract, verbose bool
-	var name string
+	var name, password string
 	excludes := make([]string, 0, 2)
 	files := make([]string, 0, 2)
 	waiters := make([]*string, 0, 4)
@@ -48,6 +48,9 @@ func main() {
 			l := len(excludes)
 			excludes = append(excludes, "")
 			waiters = append(waiters, &excludes[l])
+
+		case 'p':
+			waiters = append(waiters, &password)
 
 		case 'v':
 			verbose = true
@@ -79,6 +82,9 @@ func main() {
 
 		case "-e", "--exclude":
 			handleArg('e')
+
+		case "-p", "--password":
+			waiters = append(waiters, &password)
 
 		case "-v", "--verbose":
 			handleArg('v')
@@ -129,12 +135,12 @@ func main() {
 	}
 
 	if list {
-		handleCommand(listArchive(name, zstd, verbose))
+		handleCommand(listArchive(name, password, zstd, verbose))
 		return
 	}
 
 	if extract {
-		handleCommand(unpackArchive(name, zstd, verbose))
+		handleCommand(unpackArchive(name, password, zstd, verbose))
 		return
 	}
 
@@ -145,5 +151,5 @@ func main() {
 	if len(files) == 0 {
 		files = append(files, "*")
 	}
-	handleCommand(packArchive(name, files, excludes, zstd, verbose))
+	handleCommand(packArchive(name, password, files, excludes, zstd, verbose))
 }

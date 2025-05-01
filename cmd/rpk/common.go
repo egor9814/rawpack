@@ -159,8 +159,11 @@ func handleCommand(err error) {
 }
 
 func handleClosing(c io.Closer, tag string) {
+	if c == nil {
+		return
+	}
 	if err := c.Close(); err != nil {
-		logf("error: cannot close %q\n", tag)
+		logf("error: cannot close %q: %v\n", tag, err)
 	}
 }
 

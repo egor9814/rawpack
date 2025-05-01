@@ -17,7 +17,7 @@ func unpackFile(in io.Reader, f *rawpack.File, buf []byte) error {
 	return err
 }
 
-func readArchive(name string, list bool, zstd *zstdInfo, verbose bool) error {
+func readArchive(name, password string, list bool, zstd *zstdInfo, verbose bool) error {
 	if verbose {
 		if list {
 			log("list of files")
@@ -39,27 +39,25 @@ func readArchive(name string, list bool, zstd *zstdInfo, verbose bool) error {
 	if err != nil {
 		return err
 	}
-	if c != nil {
-		defer handleClosing(c, name)
-	}
+	defer handleClosing(c, name)
 
 	r, c, err = zstd.wrapReader(r, c, writeSpeed)
 	if err != nil {
 		return err
 	}
-	if c != nil {
-		defer handleClosing(c, "ZSTD Decompressor")
+	defer handleClosing(c, "ZSTD Decompressor")
+
+	if len(password) > 0 {
+		r = newCryptoReader(r, []byte(password))
 	}
 
 	archive := rawpack.NewReader(r)
 	s, err := archive.ReadSignature()
-	if err == nil {
-		if !s.IsValid() {
-			err = fmt.Errorf("invalid rawpack signature: %q", string(s[:]))
-		}
-	}
 	if err != nil {
 		return err
+	}
+	if !s.IsValid() {
+		return fmt.Errorf("invalid rawpack signature (maybe incorrect cryptoKey): %q", string(s[:]))
 	}
 
 	ft, err := archive.ReadFileTable()
@@ -102,10 +100,10 @@ func readArchive(name string, list bool, zstd *zstdInfo, verbose bool) error {
 	return nil
 }
 
-func listArchive(name string, zstd *zstdInfo, verbose bool) error {
-	return readArchive(name, true, zstd, verbose)
+func listArchive(name, password string, zstd *zstdInfo, verbose bool) error {
+	return readArchive(name, password, true, zstd, verbose)
 }
 
-func unpackArchive(name string, zstd *zstdInfo, verbose bool) error {
-	return readArchive(name, false, zstd, verbose)
+func unpackArchive(name, password string, zstd *zstdInfo, verbose bool) error {
+	return readArchive(name, password, false, zstd, verbose)
 }

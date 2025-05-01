@@ -18,6 +18,7 @@ func help() {
 	fmt.Println("  -d, --dir <dir>            change dir")
 	fmt.Println("  -e, --exclude <pattern>    exclude files")
 	fmt.Println("      --zstd=<zstd_options>  apply ZSTD compression")
+	fmt.Println("  -p, --password <password>  set archive password")
 	fmt.Println("  -v, --verbose              verbose mode")
 	fmt.Println("  -V, --version              show version")
 	fmt.Println("  -h, --help                 show help")

@@ -20,9 +20,7 @@ func makeIOBuffer() (buf []byte, writeSpeed float64, err error) {
 				logf("warning: cannot remove temporary file %q\n", name)
 			}
 		}(f.Name())
-		defer func(f *os.File) {
-			handleClosing(f, f.Name())
-		}(f)
+		defer handleClosing(f, f.Name())
 
 		start := time.Now()
 		_, err = f.Write(buf)

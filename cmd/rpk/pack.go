@@ -15,7 +15,7 @@ func packFile(out io.Writer, f *rawpack.File, buf []byte) error {
 	return err
 }
 
-func packArchive(name string, files, excludes []string, zstd *zstdInfo, verbose bool) error {
+func packArchive(name, password string, files, excludes []string, zstd *zstdInfo, verbose bool) error {
 	if verbose {
 		logln("scaning files...")
 	}
@@ -42,9 +42,7 @@ func packArchive(name string, files, excludes []string, zstd *zstdInfo, verbose 
 	if err != nil {
 		return err
 	}
-	if c != nil {
-		defer handleClosing(c, name)
-	}
+	defer handleClosing(c, name)
 
 	if err := chdir(); err != nil {
 		return err
@@ -65,8 +63,10 @@ func packArchive(name string, files, excludes []string, zstd *zstdInfo, verbose 
 	if err != nil {
 		return err
 	}
-	if c != nil {
-		defer handleClosing(c, "ZSTD Compressor")
+	defer handleClosing(c, "ZSTD Compressor")
+
+	if len(password) > 0 {
+		w = newCryptoWriter(w, []byte(password))
 	}
 
 	archive := rawpack.NewWriter(w)
