@@ -56,7 +56,7 @@ func packArchive(name, password string, files, excludes []string, zstd *zstdInfo
 	}
 	fileSize += uint64(len(ft)) * 8
 
-	w, c, err = zstd.wrapWriter(w, c, writeSpeed, fileSize)
+	w, c, err = zstd.wrapWriter(w, writeSpeed, fileSize)
 	if err != nil {
 		return err
 	}

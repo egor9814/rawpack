@@ -209,9 +209,9 @@ func (i *zstdInfo) validateParameters(writeSpeed float64, size uint64, isWrite b
 	return nil
 }
 
-func (i *zstdInfo) wrapWriter(w io.Writer, c io.Closer, writeSpeed float64, size uint64) (io.Writer, io.Closer, error) {
+func (i *zstdInfo) wrapWriter(w io.Writer, writeSpeed float64, size uint64) (io.Writer, io.Closer, error) {
 	if i == nil {
-		return w, c, nil
+		return w, nil, nil
 	}
 
 	if err := i.validateParameters(writeSpeed, size, true); err != nil {
