@@ -116,7 +116,7 @@ func findFiles(includePatterns, excludePatterns []string, verbose bool) (f rawpa
 	return
 }
 
-func copyBuffer(dst io.Writer, src io.Reader, size uint64, buf []byte) (written uint64, err error) {
+func copyBuffer(dst io.Writer, src io.Reader, size uint64, buf []byte, verbose bool) (written uint64, err error) {
 	// copy of io.copyBuffer, without WriterTo and ReaderFrom, with log
 	src = io.LimitReader(src, int64(size))
 	for {
@@ -130,7 +130,9 @@ func copyBuffer(dst io.Writer, src io.Reader, size uint64, buf []byte) (written 
 				}
 			}
 			written += uint64(nw)
-			logf("\r%d/%d bytes", written, size)
+			if verbose {
+				logf("\r%d/%d bytes", written, size)
+			}
 			if ew != nil {
 				err = ew
 				break

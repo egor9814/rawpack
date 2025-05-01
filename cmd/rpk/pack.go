@@ -5,13 +5,13 @@ import (
 	"io"
 )
 
-func packFile(out io.Writer, f *rawpack.File, buf []byte) error {
+func packFile(out io.Writer, f *rawpack.File, buf []byte, verbose bool) error {
 	rc, err := f.Read()
 	if err != nil {
 		return err
 	}
 	defer handleClosing(rc, f.Name)
-	_, err = copyBuffer(out, rc, f.Size, buf)
+	_, err = copyBuffer(out, rc, f.Size, buf, verbose)
 	return err
 }
 
@@ -78,7 +78,7 @@ func packArchive(name, password string, files, excludes []string, zstd *zstdInfo
 	if verbose {
 		for i, it := range ft {
 			logf("\r%3d/%3d> packing %s...\n", i+1, len(ft), it.Name)
-			if err := packFile(archive, &it, buf); err != nil {
+			if err := packFile(archive, &it, buf, true); err != nil {
 				return err
 			}
 		}
@@ -86,7 +86,7 @@ func packArchive(name, password string, files, excludes []string, zstd *zstdInfo
 	} else {
 		for _, it := range ft {
 			logln(it.Name)
-			if err := archive.WriteFile(&it); err != nil {
+			if err := packFile(archive, &it, buf, false); err != nil {
 				return err
 			}
 		}

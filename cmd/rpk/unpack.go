@@ -7,13 +7,13 @@ import (
 	"github.com/egor9814/rawpack"
 )
 
-func unpackFile(in io.Reader, f *rawpack.File, buf []byte) error {
+func unpackFile(in io.Reader, f *rawpack.File, buf []byte, verbose bool) error {
 	wc, err := f.Write()
 	if err != nil {
 		return err
 	}
 	defer handleClosing(wc, f.Name)
-	_, err = copyBuffer(wc, in, f.Size, buf)
+	_, err = copyBuffer(wc, in, f.Size, buf, verbose)
 	return err
 }
 
@@ -81,7 +81,7 @@ func readArchive(name, password string, list bool, zstd *zstdInfo, verbose bool)
 		if verbose {
 			for i, it := range ft {
 				logf("\r%3d/%3d> unpacking %s...\n", i+1, len(ft), it.Name)
-				if err := unpackFile(archive, &it, buf); err != nil {
+				if err := unpackFile(archive, &it, buf, true); err != nil {
 					return err
 				}
 			}
@@ -89,7 +89,7 @@ func readArchive(name, password string, list bool, zstd *zstdInfo, verbose bool)
 		} else {
 			for _, it := range ft {
 				logln(it.Name)
-				if err := archive.ReadFile(&it); err != nil {
+				if err := unpackFile(archive, &it, buf, false); err != nil {
 					return err
 				}
 			}
