@@ -14,8 +14,15 @@ func makeIOBuffer() (buf []byte, writeSpeed float64, err error) {
 		if err != nil {
 			return
 		}
-		defer os.Remove(f.Name())
-		defer f.Close()
+		defer func(name string) {
+			err := os.Remove(name)
+			if err != nil {
+				logf("warning: cannot remove temporary file %q\n", name)
+			}
+		}(f.Name())
+		defer func(f *os.File) {
+			handleClosing(f, f.Name())
+		}(f)
 
 		start := time.Now()
 		_, err = f.Write(buf)

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"strings"
 )
@@ -12,7 +11,7 @@ func main() {
 	}
 
 	if d, err := os.Getwd(); err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		logf("error: %v\n", err)
 		os.Exit(1)
 	} else {
 		wd = d
@@ -99,7 +98,7 @@ func main() {
 			}
 			if strings.HasPrefix(arg, "--zstd=") {
 				if i, err := handleZstd(arg[7:]); err != nil {
-					fmt.Fprintf(os.Stderr, "zstd format error: %v", err)
+					logf("zstd format error: %v", err)
 					os.Exit(1)
 				} else {
 					zstd = i
@@ -110,11 +109,11 @@ func main() {
 					if handleArg(r) {
 						handled++
 					} else {
-						fmt.Fprintf(os.Stderr, "warning: ignoring unsupported flag '-%v'\n", string(r))
+						logf("warning: ignoring unsupported flag '-%v'\n", string(r))
 					}
 				}
 				if handled == 0 {
-					fmt.Fprintf(os.Stderr, "warning: ignoring unsupported flag '%s'\n", arg)
+					logf("warning: ignoring unsupported flag '%s'\n", arg)
 				}
 			} else if waitersReed < len(waiters) {
 				*waiters[waitersReed] = arg
@@ -125,7 +124,7 @@ func main() {
 		}
 	}
 	if waitersReed < len(waiters) {
-		fmt.Fprintln(os.Stderr, "error: not enough arguments for provided options")
+		logln("error: not enough arguments for provided options")
 		os.Exit(1)
 	}
 

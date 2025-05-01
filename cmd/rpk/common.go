@@ -106,7 +106,7 @@ func findFiles(includePatterns, excludePatterns []string, verbose bool) (f rawpa
 				} else {
 					f = append(f, rawpack.File{Name: p, Size: uint64(info.Size())})
 					if verbose {
-						fmt.Fprintf(os.Stderr, "\r%d", len(f))
+						logf("\r%d", len(f))
 					}
 				}
 			}
@@ -130,7 +130,7 @@ func copyBuffer(dst io.Writer, src io.Reader, size uint64, buf []byte) (written 
 				}
 			}
 			written += uint64(nw)
-			fmt.Fprintf(os.Stderr, "\r%d/%d bytes", written, size)
+			logf("\r%d/%d bytes", written, size)
 			if ew != nil {
 				err = ew
 				break
@@ -147,18 +147,24 @@ func copyBuffer(dst io.Writer, src io.Reader, size uint64, buf []byte) (written 
 			break
 		}
 	}
-	fmt.Fprintf(os.Stderr, "\r")
+	logf("\r                           ")
 	return written, err
 }
 
 func handleCommand(err error) {
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		logf("error: %v\n", err)
 		os.Exit(1)
 	}
 }
 
+func handleClosing(c io.Closer, tag string) {
+	if err := c.Close(); err != nil {
+		logf("error: cannot close %q\n", tag)
+	}
+}
+
 func noMode() {
-	fmt.Fprintln(os.Stderr, "error: mode not specified (-c, -x or -l), or type '--help'")
+	logln("error: mode not specified (-c, -x or -l), or type '--help'")
 	os.Exit(1)
 }

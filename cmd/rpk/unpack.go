@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"io"
-	"os"
 
 	"github.com/egor9814/rawpack"
 )
@@ -13,7 +12,7 @@ func unpackFile(in io.Reader, f *rawpack.File, buf []byte) error {
 	if err != nil {
 		return err
 	}
-	defer wc.Close()
+	defer handleClosing(wc, f.Name)
 	_, err = copyBuffer(wc, in, f.Size, buf)
 	return err
 }
@@ -21,14 +20,14 @@ func unpackFile(in io.Reader, f *rawpack.File, buf []byte) error {
 func readArchive(name string, list bool, zstd *zstdInfo, verbose bool) error {
 	if verbose {
 		if list {
-			fmt.Fprint(os.Stderr, "list of files")
+			log("list of files")
 		} else {
-			fmt.Fprint(os.Stderr, "unpacking archive")
+			log("unpacking archive")
 		}
 		if !isStdIOFile(name) {
-			fmt.Fprintf(os.Stderr, " %q", name)
+			logf(" %q", name)
 		}
-		fmt.Fprintln(os.Stderr, "...")
+		logln("...")
 	}
 
 	buf, writeSpeed, err := makeIOBuffer()
@@ -41,7 +40,7 @@ func readArchive(name string, list bool, zstd *zstdInfo, verbose bool) error {
 		return err
 	}
 	if c != nil {
-		defer c.Close()
+		defer handleClosing(c, name)
 	}
 
 	r, c, err = zstd.wrapReader(r, c, writeSpeed)
@@ -49,7 +48,7 @@ func readArchive(name string, list bool, zstd *zstdInfo, verbose bool) error {
 		return err
 	}
 	if c != nil {
-		defer c.Close()
+		defer handleClosing(c, "ZSTD Decompressor")
 	}
 
 	archive := rawpack.NewReader(r)
@@ -71,11 +70,11 @@ func readArchive(name string, list bool, zstd *zstdInfo, verbose bool) error {
 	if list {
 		if verbose {
 			for i, it := range ft {
-				fmt.Fprintf(os.Stderr, "%3d/%3d> %s (%d bytes)\n", i+1, len(ft), it.Name, it.Size)
+				logf("%3d/%3d> %s (%d bytes)\n", i+1, len(ft), it.Name, it.Size)
 			}
 		} else {
 			for _, it := range ft {
-				fmt.Fprintln(os.Stderr, it)
+				logln(it)
 			}
 		}
 	} else {
@@ -84,15 +83,15 @@ func readArchive(name string, list bool, zstd *zstdInfo, verbose bool) error {
 		}
 		if verbose {
 			for i, it := range ft {
-				fmt.Fprintf(os.Stderr, "%3d/%3d> unpacking %s...\n", i+1, len(ft), it.Name)
+				logf("%3d/%3d> unpacking %s...\n", i+1, len(ft), it.Name)
 				if err := unpackFile(archive, &it, buf); err != nil {
 					return err
 				}
 			}
-			fmt.Fprintf(os.Stderr, "\r                                                 ")
+			logf("\r                                                 ")
 		} else {
 			for _, it := range ft {
-				fmt.Fprintln(os.Stderr, it.Name)
+				logln(it.Name)
 				if err := archive.ReadFile(&it); err != nil {
 					return err
 				}

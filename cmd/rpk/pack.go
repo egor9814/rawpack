@@ -1,11 +1,8 @@
 package main
 
 import (
-	"fmt"
-	"io"
-	"os"
-
 	"github.com/egor9814/rawpack"
+	"io"
 )
 
 func packFile(out io.Writer, f *rawpack.File, buf []byte) error {
@@ -13,32 +10,32 @@ func packFile(out io.Writer, f *rawpack.File, buf []byte) error {
 	if err != nil {
 		return err
 	}
-	defer rc.Close()
+	defer handleClosing(rc, f.Name)
 	_, err = copyBuffer(out, rc, f.Size, buf)
 	return err
 }
 
 func packArchive(name string, files, excludes []string, zstd *zstdInfo, verbose bool) error {
 	if verbose {
-		fmt.Fprintln(os.Stderr, "scaning files...")
+		logln("scaning files...")
 	}
 	ft, err := findFiles(files, excludes, verbose)
 	if verbose {
-		fmt.Fprintf(os.Stderr, "\r          ")
+		logf("\r          ")
 	}
 	if err != nil {
 		return err
 	}
 	if len(ft) == 0 {
-		fmt.Fprintln(os.Stderr, "warning: files not specified, empty archive will be created")
+		logln("warning: files not specified, empty archive will be created")
 	}
 
 	if verbose {
-		fmt.Fprint(os.Stderr, "creating archive")
+		log("creating archive")
 		if !isStdIOFile(name) {
-			fmt.Fprintf(os.Stderr, " %q", name)
+			logf(" %q", name)
 		}
-		fmt.Fprintln(os.Stderr, "...")
+		logln("...")
 	}
 
 	w, c, err := openFileForWrite(name)
@@ -46,7 +43,7 @@ func packArchive(name string, files, excludes []string, zstd *zstdInfo, verbose 
 		return err
 	}
 	if c != nil {
-		defer c.Close()
+		defer handleClosing(c, name)
 	}
 
 	if err := chdir(); err != nil {
@@ -69,7 +66,7 @@ func packArchive(name string, files, excludes []string, zstd *zstdInfo, verbose 
 		return err
 	}
 	if c != nil {
-		defer c.Close()
+		defer handleClosing(c, "ZSTD Compressor")
 	}
 
 	archive := rawpack.NewWriter(w)
@@ -83,15 +80,15 @@ func packArchive(name string, files, excludes []string, zstd *zstdInfo, verbose 
 
 	if verbose {
 		for i, it := range ft {
-			fmt.Fprintf(os.Stderr, "%3d/%3d> packing %s...\n", i+1, len(ft), it.Name)
+			logf("%3d/%3d> packing %s...\n", i+1, len(ft), it.Name)
 			if err := packFile(archive, &it, buf); err != nil {
 				return err
 			}
 		}
-		fmt.Fprintf(os.Stderr, "\rdone!                                            ")
+		logf("\rdone!                                            ")
 	} else {
 		for _, it := range ft {
-			fmt.Fprintln(os.Stderr, it.Name)
+			logln(it.Name)
 			if err := archive.WriteFile(&it); err != nil {
 				return err
 			}
