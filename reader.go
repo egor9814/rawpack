@@ -82,21 +82,11 @@ func (r *Reader) ReadFileTable() (FileTable, error) {
 	return nil, nil
 }
 
-func (r *Reader) ReadFile(f *File) error {
-	out, err := f.Write()
-	if err == nil {
-		defer out.Close()
-		err = r.ReadFileTo(out, f.Size)
+func (r *Reader) ReadFile(f *File) io.Reader {
+	if f == nil {
+		return nil
 	}
-	return err
-}
-
-func (r *Reader) ReadFileTo(out io.Writer, size uint64) error {
-	n, err := io.CopyN(out, r.in, int64(size))
-	if err == nil && n < int64(size) {
-		err = io.ErrShortWrite
-	}
-	return err
+	return io.LimitReader(r, int64(f.Size))
 }
 
 func (r *Reader) Read(b []byte) (int, error) {
