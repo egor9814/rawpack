@@ -49,10 +49,11 @@ func packArchive(name string, files, excludes []string, zstd *zstdInfo, verbose 
 		return err
 	}
 
-	fileSize := uint64(0)
+	fileSize := uint64(len(rawpack.Signature{}))
 	for _, it := range ft {
-		fileSize += it.Size
+		fileSize += it.Size + uint64(len([]byte(it.Name)))
 	}
+	fileSize += uint64(len(ft)) * 8
 
 	w, c, err = zstd.wrapWriter(w, c, writeSpeed, fileSize)
 	if err != nil {
