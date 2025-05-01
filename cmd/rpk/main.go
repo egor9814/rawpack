@@ -11,8 +11,7 @@ func main() {
 	}
 
 	if d, err := os.Getwd(); err != nil {
-		logf("error: %v\n", err)
-		os.Exit(1)
+		handleCommand(err)
 	} else {
 		wd = d
 	}
